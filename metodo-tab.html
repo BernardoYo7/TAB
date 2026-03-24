@@ -1223,6 +1223,18 @@ select option { background: #13131f; }
 <!-- PRÁTICA DE QUESTÕES -->
 <div id="sec-pratica" class="section">
   <p class="section-title">🎯 Prática de questões</p>
+
+  <!-- seletor de nível -->
+  <div style="margin-bottom:14px">
+    <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px">Meu nível nesta matéria</div>
+    <div style="display:flex;gap:6px">
+      <button class="nivel-btn active" data-nivel="iniciante" onclick="setNivel(this)" style="flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.18s">🌱 Iniciante</button>
+      <button class="nivel-btn" data-nivel="intermediario" onclick="setNivel(this)" style="flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.18s">📈 Intermediário</button>
+      <button class="nivel-btn" data-nivel="avancado" onclick="setNivel(this)" style="flex:1;padding:8px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;cursor:pointer;transition:all 0.18s">🔥 Avançado</button>
+    </div>
+    <div id="nivel-dica" style="font-size:11px;color:var(--muted);margin-top:6px;padding:8px 10px;background:var(--surface);border-radius:8px;border-left:3px solid var(--L)">🌱 Explicações do zero, linguagem simples, exemplos do dia a dia.</div>
+  </div>
+
   <div class="pratica-tabs">
     <button class="pratica-tab active" onclick="setPraticaTab('buscar',this)">🔍 Buscar</button>
     <button class="pratica-tab" onclick="setPraticaTab('colar',this)">📋 Colar</button>
@@ -2030,6 +2042,31 @@ if (enemQuestoes.length) {
 }
 
 
+// ── NÍVEL ──────────────────────────────────────────────────────
+let nivelAtual = 'iniciante';
+const NIVEL_DICAS = {
+  iniciante:     '🌱 Explicações do zero, linguagem simples, exemplos do dia a dia.',
+  intermediario: '📈 Assume que você conhece o básico, foca no que você ainda confunde.',
+  avancado:      '🔥 Vai direto ao ponto, foca no detalhe que você errou.'
+};
+const NIVEL_PROMPTS = {
+  iniciante:     'Explique como se a pessoa nunca tivesse visto esse assunto. Use linguagem bem simples, sem termos técnicos. Use exemplos do dia a dia. Seja encorajador.',
+  intermediario: 'A pessoa conhece o básico do assunto mas ainda comete erros. Foque em esclarecer a confusão específica, sem explicar o óbvio.',
+  avancado:      'A pessoa domina o assunto. Seja direto e objetivo. Foque apenas no detalhe preciso que causou o erro.'
+};
+function setNivel(btn) {
+  document.querySelectorAll('.nivel-btn').forEach(b => {
+    b.style.background = 'var(--surface)';
+    b.style.color = 'var(--muted)';
+    b.style.borderColor = 'var(--border)';
+  });
+  btn.style.background = 'var(--surface2)';
+  btn.style.color = 'var(--text)';
+  btn.style.borderColor = 'var(--L)';
+  nivelAtual = btn.dataset.nivel;
+  document.getElementById('nivel-dica').textContent = NIVEL_DICAS[nivelAtual];
+}
+
 // ── GROQ AI ────────────────────────────────────────────────────
 const GROQ_KEY_STORE = 'tab_gemini_key';
 function getGroqKey() { return localStorage.getItem(GROQ_KEY_STORE) || ''; }
@@ -2115,8 +2152,9 @@ async function buscarQuestao() {
   area.innerHTML = `<div class="ai-loading"><div class="spinner"></div>Gerando questão sobre "${tema}"...</div>`;
   pararTimer();
   try {
+    const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
     const txt = await geminiAI(`Crie uma questão de múltipla escolha estilo ENEM sobre: "${tema}". Retorne APENAS JSON válido sem markdown:
-{"materia":"nome da matéria","enunciado":"enunciado completo","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação detalhada","conceito":"conceito principal","dica":"dica para o ENEM"}
+{"materia":"nome da matéria","enunciado":"enunciado completo","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação adaptada para este nível: ${nivelAtual}. ${nivelInstrucao}","conceito":"conceito principal adaptado ao nível","dica":"dica prática para o ENEM adaptada ao nível"}
 gabarito é o índice 0-4.`);
     const match = txt.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Resposta inválida. Tente novamente.');
@@ -2138,8 +2176,9 @@ async function processarColada() {
   area.innerHTML = `<div class="ai-loading"><div class="spinner"></div>Analisando com IA...</div>`;
   pararTimer();
   try {
+    const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
     const txt = await geminiAI(`Analise esta questão e retorne APENAS JSON válido sem markdown:
-{"materia":"nome da matéria","enunciado":"só o enunciado sem alternativas","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação","conceito":"conceito principal","dica":"dica ENEM"}
+{"materia":"nome da matéria","enunciado":"só o enunciado sem alternativas","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação adaptada para nível ${nivelAtual}. ${nivelInstrucao}","conceito":"conceito adaptado ao nível","dica":"dica prática para o ENEM adaptada ao nível"}
 Questão: ${texto}`);
     const match = txt.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Não consegui analisar. Tente novamente.');
@@ -2191,9 +2230,12 @@ async function responderQuestao(idx) {
   fb.innerHTML = `<div class="ai-loading"><div class="spinner"></div>Gerando análise...</div>`;
   try {
     const erroCtx = !acertou ? `Aluno respondeu ${letras[idx]}, correto é ${letras[gabarito]}.` : `Aluno acertou com ${letras[idx]}.`;
+    const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
     const txt = await geminiAI(`Questão ENEM - ${q.materia}. Enunciado: ${q.enunciado}. Alternativas: ${(q.alternativas||[]).map((a,i)=>letras[i]+') '+a).join(' | ')}. Gabarito: ${letras[gabarito]}. ${erroCtx}
+
+Nível do aluno: ${nivelAtual}. ${nivelInstrucao}
 Retorne APENAS JSON válido:
-{"explicacao":"explicação completa","erro_provavel":"${!acertou?'por que errou':'não aplicável'}","conceito_chave":"conceito necessário","dica_enem":"dica para o ENEM","tab_tipo":"B ou L ou D","tab_justificativa":"motivo"}`);
+{"explicacao":"explique a resposta correta adaptada ao nível do aluno","erro_provavel":"${!acertou?'explique gentilmente por que essa alternativa confunde e qual foi o erro de raciocínio':'não aplicável'}","conceito_chave":"explique o conceito necessário adaptado ao nível","dica_enem":"dica prática adaptada ao nível do aluno","tab_tipo":"B ou L ou D","tab_justificativa":"motivo simples"}`);
     const match = txt.match(/\{[\s\S]*\}/);
     const a = match ? JSON.parse(match[0]) : {};
     praticaAtual._analise = a; praticaAtual._acertou = acertou;
