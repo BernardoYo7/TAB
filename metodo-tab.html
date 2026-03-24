@@ -2050,9 +2050,9 @@ const NIVEL_DICAS = {
   avancado:      '🔥 Vai direto ao ponto, foca no detalhe que você errou.'
 };
 const NIVEL_PROMPTS = {
-  iniciante:     'Explique como se a pessoa nunca tivesse visto esse assunto. Use linguagem bem simples, sem termos técnicos. Use exemplos do dia a dia. Seja encorajador.',
-  intermediario: 'A pessoa conhece o básico do assunto mas ainda comete erros. Foque em esclarecer a confusão específica, sem explicar o óbvio.',
-  avancado:      'A pessoa domina o assunto. Seja direto e objetivo. Foque apenas no detalhe preciso que causou o erro.'
+  iniciante:     'Use linguagem clara e acessível, sem jargão técnico. Explique o raciocínio passo a passo. Dê exemplos concretos quando ajudar. Não seja condescendente.',
+  intermediario: 'A pessoa conhece o básico. Foque no ponto específico de confusão. Explique por que a alternativa errada parece plausível.',
+  avancado:      'Seja direto e técnico. Aponte exatamente o erro de raciocínio. Pode usar terminologia da área. Sem rodeios.'
 };
 function setNivel(btn) {
   document.querySelectorAll('.nivel-btn').forEach(b => {
@@ -2231,11 +2231,25 @@ async function responderQuestao(idx) {
   try {
     const erroCtx = !acertou ? `Aluno respondeu ${letras[idx]}, correto é ${letras[gabarito]}.` : `Aluno acertou com ${letras[idx]}.`;
     const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
-    const txt = await geminiAI(`Questão ENEM - ${q.materia}. Enunciado: ${q.enunciado}. Alternativas: ${(q.alternativas||[]).map((a,i)=>letras[i]+') '+a).join(' | ')}. Gabarito: ${letras[gabarito]}. ${erroCtx}
+    const erroField = !acertou ? 'explique por que essa alternativa confunde e qual foi o erro de raciocínio' : 'não aplicável';
+    const promptFeedback = `Questão ENEM - ${q.materia}.
+Enunciado: ${q.enunciado}
+Alternativas: ${(q.alternativas||[]).map((a,i)=>letras[i]+') '+a).join(' | ')}
+Gabarito: ${letras[gabarito]}) ${(q.alternativas||[])[gabarito]}
+${erroCtx}
 
 Nível do aluno: ${nivelAtual}. ${nivelInstrucao}
-Retorne APENAS JSON válido:
-{"explicacao":"explique a resposta correta adaptada ao nível do aluno","erro_provavel":"${!acertou?'explique gentilmente por que essa alternativa confunde e qual foi o erro de raciocínio':'não aplicável'}","conceito_chave":"explique o conceito necessário adaptado ao nível","dica_enem":"dica prática adaptada ao nível do aluno","tab_tipo":"B ou L ou D","tab_justificativa":"motivo simples"}`);
+
+Retorne APENAS um objeto JSON válido, sem markdown, sem texto fora do JSON:
+{
+  "explicacao": "explicação completa da resposta correta adaptada ao nível",
+  "erro_provavel": "${erroField}",
+  "conceito_chave": "conceito necessário adaptado ao nível",
+  "dica_enem": "dica prática para o ENEM adaptada ao nível",
+  "tab_tipo": "B ou L ou D",
+  "tab_justificativa": "motivo"
+}`;
+    const txt = await geminiAI(promptFeedback);
     const match = txt.match(/\{[\s\S]*\}/);
     const a = match ? JSON.parse(match[0]) : {};
     praticaAtual._analise = a; praticaAtual._acertou = acertou;
