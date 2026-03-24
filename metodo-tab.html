@@ -2067,6 +2067,51 @@ function setNivel(btn) {
   document.getElementById('nivel-dica').textContent = NIVEL_DICAS[nivelAtual];
 }
 
+// ── JSON PARSER ROBUSTO ────────────────────────────────────────
+function parseAIJson(txt) {
+  if (!txt) return null;
+  // tenta extrair o bloco JSON
+  const match = txt.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  let str = match[0];
+  try {
+    return JSON.parse(str);
+  } catch(e) {
+    // limpa problemas comuns: aspas internas, newlines em valores
+    str = str
+      .replace(/[\r\n]+/g, ' ')           // remove quebras de linha
+      .replace(/,\s*}/g, '}')             // vírgula antes de }
+      .replace(/,\s*]/g, ']')             // vírgula antes de ]
+      .replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3') // chaves sem aspas
+      .replace(/:\s*'([^']*)'/g, ': "$1"') // aspas simples em valores
+      .replace(/\\'/g, "'");              // aspas escapadas
+    try {
+      return JSON.parse(str);
+    } catch(e2) {
+      // último recurso: extrai campos manualmente
+      const get = (key) => {
+        const r = new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"`, 'i');
+        const m = str.match(r);
+        return m ? m[1].replace(/\\n/g,' ').replace(/\\"/g,'"') : '';
+      };
+      return {
+        explicacao: get('explicacao'),
+        erro_provavel: get('erro_provavel'),
+        conceito_chave: get('conceito_chave'),
+        dica_enem: get('dica_enem'),
+        tab_tipo: get('tab_tipo') || 'L',
+        tab_justificativa: get('tab_justificativa'),
+        materia: get('materia'),
+        enunciado: get('enunciado'),
+        gabarito: 0,
+        explicacao2: get('explicacao'),
+        conceito: get('conceito'),
+        dica: get('dica')
+      };
+    }
+  }
+}
+
 // ── GROQ AI ────────────────────────────────────────────────────
 const GROQ_KEY_STORE = 'tab_gemini_key';
 function getGroqKey() { return localStorage.getItem(GROQ_KEY_STORE) || ''; }
@@ -2158,7 +2203,8 @@ async function buscarQuestao() {
 gabarito é o índice 0-4.`);
     const match = txt.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('Resposta inválida. Tente novamente.');
-    const q = JSON.parse(match[0]);
+    const q = parseAIJson(txt);
+    if (!q) throw new Error('Não consegui processar a resposta. Tente novamente.');
     q.tema = tema;
     praticaAtual = q;
     renderQuestaoInterativa(area, q);
@@ -2180,9 +2226,8 @@ async function processarColada() {
     const txt = await geminiAI(`Analise esta questão e retorne APENAS JSON válido sem markdown:
 {"materia":"nome da matéria","enunciado":"só o enunciado sem alternativas","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação adaptada para nível ${nivelAtual}. ${nivelInstrucao}","conceito":"conceito adaptado ao nível","dica":"dica prática para o ENEM adaptada ao nível"}
 Questão: ${texto}`);
-    const match = txt.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Não consegui analisar. Tente novamente.');
-    const q = JSON.parse(match[0]);
+    const q = parseAIJson(txt);
+    if (!q) throw new Error('Não consegui analisar. Tente novamente.');
     q.tema = q.materia;
     praticaAtual = q;
     renderQuestaoInterativa(area, q);
@@ -2250,8 +2295,7 @@ Retorne APENAS um objeto JSON válido, sem markdown, sem texto fora do JSON:
   "tab_justificativa": "motivo"
 }`;
     const txt = await geminiAI(promptFeedback);
-    const match = txt.match(/\{[\s\S]*\}/);
-    const a = match ? JSON.parse(match[0]) : {};
+    const a = parseAIJson(txt) || {};
     praticaAtual._analise = a; praticaAtual._acertou = acertou;
     fb.innerHTML = `
       <div class="feedback-section"><div class="feedback-label ${acertou?'acerto':'erro'}">${acertou?'✅ Correto!':'❌ Incorreto — Gabarito: '+letras[gabarito]}</div><div class="feedback-text">${a.explicacao||q.explicacao||''}</div></div>
