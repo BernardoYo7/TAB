@@ -2198,11 +2198,14 @@ async function buscarQuestao() {
   pararTimer();
   try {
     const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
-    const txt = await geminiAI(`Crie uma questão de múltipla escolha estilo ENEM sobre: "${tema}". Retorne APENAS JSON válido sem markdown:
-{"materia":"nome da matéria","enunciado":"enunciado completo","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação adaptada para este nível: ${nivelAtual}. ${nivelInstrucao}","conceito":"conceito principal adaptado ao nível","dica":"dica prática para o ENEM adaptada ao nível"}
-gabarito é o índice 0-4.`);
-    const match = txt.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Resposta inválida. Tente novamente.');
+    const promptBuscar = [
+      `Crie uma questão de múltipla escolha estilo ENEM sobre: "${tema}".`,
+      `Nível do aluno: ${nivelAtual}. ${nivelInstrucao}`,
+      `Retorne APENAS o JSON abaixo preenchido, sem mais nada:`,
+      `{"materia":"[nome da matéria]","enunciado":"[enunciado completo da questão]","alternativas":["[texto A]","[texto B]","[texto C]","[texto D]","[texto E]"],"gabarito":0,"explicacao":"[explicação completa]","conceito":"[conceito necessário]","dica":"[dica para o ENEM]"}`,
+      `gabarito = índice da alternativa correta (0=A, 1=B, 2=C, 3=D, 4=E). Preencha todos os campos.`
+    ].join('\n');
+    const txt = await geminiAI(promptBuscar);
     const q = parseAIJson(txt);
     if (!q) throw new Error('Não consegui processar a resposta. Tente novamente.');
     q.tema = tema;
@@ -2223,9 +2226,15 @@ async function processarColada() {
   pararTimer();
   try {
     const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
-    const txt = await geminiAI(`Analise esta questão e retorne APENAS JSON válido sem markdown:
-{"materia":"nome da matéria","enunciado":"só o enunciado sem alternativas","alternativas":["A","B","C","D","E"],"gabarito":0,"explicacao":"explicação adaptada para nível ${nivelAtual}. ${nivelInstrucao}","conceito":"conceito adaptado ao nível","dica":"dica prática para o ENEM adaptada ao nível"}
-Questão: ${texto}`);
+    const promptColar = [
+      `Analise esta questão de múltipla escolha:`,
+      texto,
+      `Nível do aluno: ${nivelAtual}. ${nivelInstrucao}`,
+      `Retorne APENAS o JSON abaixo preenchido, sem mais nada:`,
+      `{"materia":"[nome da matéria]","enunciado":"[só o enunciado sem alternativas]","alternativas":["[texto A sem a letra]","[texto B]","[texto C]","[texto D]","[texto E]"],"gabarito":0,"explicacao":"[explicação completa]","conceito":"[conceito necessário]","dica":"[dica para o ENEM]"}`,
+      `gabarito = índice da alternativa correta (0=A, 1=B, 2=C, 3=D, 4=E). Preencha todos os campos.`
+    ].join('\n');
+    const txt = await geminiAI(promptColar);
     const q = parseAIJson(txt);
     if (!q) throw new Error('Não consegui analisar. Tente novamente.');
     q.tema = q.materia;
@@ -2276,24 +2285,17 @@ async function responderQuestao(idx) {
   try {
     const erroCtx = !acertou ? `Aluno respondeu ${letras[idx]}, correto é ${letras[gabarito]}.` : `Aluno acertou com ${letras[idx]}.`;
     const nivelInstrucao = NIVEL_PROMPTS[nivelAtual];
-    const erroField = !acertou ? 'explique por que essa alternativa confunde e qual foi o erro de raciocínio' : 'não aplicável';
-    const promptFeedback = `Questão ENEM - ${q.materia}.
-Enunciado: ${q.enunciado}
-Alternativas: ${(q.alternativas||[]).map((a,i)=>letras[i]+') '+a).join(' | ')}
-Gabarito: ${letras[gabarito]}) ${(q.alternativas||[])[gabarito]}
-${erroCtx}
-
-Nível do aluno: ${nivelAtual}. ${nivelInstrucao}
-
-Retorne APENAS um objeto JSON válido, sem markdown, sem texto fora do JSON:
-{
-  "explicacao": "explicação completa da resposta correta adaptada ao nível",
-  "erro_provavel": "${erroField}",
-  "conceito_chave": "conceito necessário adaptado ao nível",
-  "dica_enem": "dica prática para o ENEM adaptada ao nível",
-  "tab_tipo": "B ou L ou D",
-  "tab_justificativa": "motivo"
-}`;
+    const promptFeedback = [
+      `Questão ENEM - ${q.materia}.`,
+      `Enunciado: ${q.enunciado}`,
+      `Alternativas: ${(q.alternativas||[]).map((a,i)=>letras[i]+') '+a).join(' | ')}`,
+      `Gabarito correto: ${letras[gabarito]}) ${(q.alternativas||[])[gabarito]}`,
+      erroCtx,
+      `Nível do aluno: ${nivelAtual}. ${nivelInstrucao}`,
+      `Retorne APENAS o JSON abaixo preenchido, sem mais nada:`,
+      `{"explicacao":"[explicação da resposta correta]","erro_provavel":"${!acertou ? '[por que a alternativa escolhida confunde]' : 'não aplicável'}","conceito_chave":"[conceito necessário]","dica_enem":"[dica para o ENEM]","tab_tipo":"${!acertou ? 'B ou L ou D' : 'acertou'}","tab_justificativa":"[motivo]"}`,
+      `Preencha todos os campos com texto real.`
+    ].join('\n');
     const txt = await geminiAI(promptFeedback);
     const a = parseAIJson(txt) || {};
     praticaAtual._analise = a; praticaAtual._acertou = acertou;
