@@ -2209,6 +2209,9 @@ async function buscarQuestao() {
     const q = parseAIJson(txt);
     if (!q) throw new Error('Não consegui processar a resposta. Tente novamente.');
     q.tema = tema;
+    q.alternativas = q.alternativas.map(a =>
+  (a || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/\s+/g,' ')
+);
     praticaAtual = q;
     renderQuestaoInterativa(area, q);
     iniciarTimer();
