@@ -2256,7 +2256,7 @@ function renderQuestaoInterativa(container, q) {
     <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase">${q.materia||''}</div>
     <div class="questao-box">${q.enunciado||''}</div>
     <div class="alternativas">
-      ${(q.alternativas||[]).slice(0,5).map((a,i)=>`<button class="alt-btn" onclick="responderQuestao(${i})" id="alt-${i}"><span class="alt-letra">${letras[i]}</span><span>${a}</span></button>`).join('')}
+      ${(q.alternativas||[]).slice(0,5).map((a,i)=>`<button class="alt-btn" onclick="responderQuestao(${i})" id="alt-${i}"><span class="alt-letra">${letras[i]}</span><span>${(a || '').replace(/\\n/g,' ').replace(/\n/g,' ').replace(/\s+/g,' ')}</span></button>`).join('')}
     </div>
     <div class="feedback-box" id="feedback-box"></div>
     <div class="pratica-action-row" id="pratica-actions" style="display:none">
