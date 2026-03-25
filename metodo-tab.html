@@ -2272,11 +2272,13 @@ async function responderQuestao(idx) {
   const letras = ['A','B','C','D','E'];
   const gabarito = q.gabarito ?? 0;
   const acertou = idx === gabarito;
+  setTimeout(() => {
   document.querySelectorAll('.alt-btn').forEach((b,i) => {
     b.disabled = true;
     if (i===gabarito) b.classList.add('correta');
     else if (i===idx && !acertou) b.classList.add('errada');
   });
+}, 150);
   praticaHist.unshift({ id:Date.now(), tema:q.tema, materia:q.materia, enunciado:(q.enunciado||'').substring(0,80), acertou, ts:Date.now() });
   localStorage.setItem(PRATICA_KEY, JSON.stringify(praticaHist));
   const fb = document.getElementById('feedback-box');
