@@ -2206,9 +2206,29 @@ async function buscarQuestao() {
       `gabarito = índice da alternativa correta (0=A, 1=B, 2=C, 3=D, 4=E). Preencha todos os campos.`
     ].join('\n');
     const txt = await geminiAI(promptBuscar);
-    const q = parseAIJson(txt);
-    if (!q) throw new Error('Não consegui processar a resposta. Tente novamente.');
-    q.tema = tema;
+    let q = parseAIJson(txt);
+
+// 🔧 se falhar, cria fallback
+if (!q || !Array.isArray(q.alternativas)) {
+  q = {
+    materia: tema,
+    enunciado: "Erro ao gerar questão. Tente novamente.",
+    alternativas: ["A","B","C","D","E"],
+    gabarito: 0,
+    explicacao: "Erro da IA",
+    conceito: tema,
+    dica: "Tente novamente"
+  };
+}
+
+// garantir 5 alternativas
+while (q.alternativas.length < 5) {
+  q.alternativas.push("...");
+}
+
+q.alternativas = q.alternativas.slice(0,5);
+
+q.tema = tema;
     praticaAtual = q;
     renderQuestaoInterativa(area, q);
     iniciarTimer();
