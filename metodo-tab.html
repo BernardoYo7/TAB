@@ -2206,29 +2206,9 @@ async function buscarQuestao() {
       `gabarito = índice da alternativa correta (0=A, 1=B, 2=C, 3=D, 4=E). Preencha todos os campos.`
     ].join('\n');
     const txt = await geminiAI(promptBuscar);
-    let q = parseAIJson(txt);
-
-// 🔧 se falhar, cria fallback
-if (!q || !Array.isArray(q.alternativas)) {
-  q = {
-    materia: tema,
-    enunciado: "Erro ao gerar questão. Tente novamente.",
-    alternativas: ["A","B","C","D","E"],
-    gabarito: 0,
-    explicacao: "Erro da IA",
-    conceito: tema,
-    dica: "Tente novamente"
-  };
-}
-
-// garantir 5 alternativas
-while (q.alternativas.length < 5) {
-  q.alternativas.push("...");
-}
-
-q.alternativas = q.alternativas.slice(0,5);
-
-q.tema = tema;
+    const q = parseAIJson(txt);
+    if (!q) throw new Error('Não consegui processar a resposta. Tente novamente.');
+    q.tema = tema;
     praticaAtual = q;
     renderQuestaoInterativa(area, q);
     iniciarTimer();
@@ -2276,12 +2256,7 @@ function renderQuestaoInterativa(container, q) {
     <div style="font-size:10px;color:var(--muted);margin-bottom:6px;text-transform:uppercase">${q.materia||''}</div>
     <div class="questao-box">${q.enunciado||''}</div>
     <div class="alternativas">
-      ${(q.alternativas||[]).slice(0,5).map((a,i)=>`<button class="alt-btn" onclick="responderQuestao(${i})" id="alt-${i}"><span class="alt-letra">${letras[i]}</span><span>${
-  (a || '')
-    .replace(/\\n/g, ' ')
-    .replace(/\n/g, ' ')
-    .replace(/\s+/g, ' ')
-    </span></button>`).join('')}
+      ${(q.alternativas||[]).slice(0,5).map((a,i)=>`<button class="alt-btn" onclick="responderQuestao(${i})" id="alt-${i}"><span class="alt-letra">${letras[i]}</span><span>${a}</span></button>`).join('')}
     </div>
     <div class="feedback-box" id="feedback-box"></div>
     <div class="pratica-action-row" id="pratica-actions" style="display:none">
